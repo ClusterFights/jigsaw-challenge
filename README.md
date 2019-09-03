@@ -1,1 +1,3 @@
-# jigsaw-challengeSolve a digitally generated jigsaw puzzle.
+# jigsaw-challenge
+Solve a digitally generated jigsaw puzzle.
+
