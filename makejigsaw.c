@@ -43,11 +43,13 @@
  *
  * Each piece is given a random number and a random orientation.  The goal
  * of a solver program is to list the pieces and their clockwize orientation
- * starting from the top left corner and going from left to right.  The
+ * starting from the top left corner and going from left to right.  A
+ * solution gives the file name of the piece and how much the piece should
+ * be rotated in the counterclockwise direction before placement.  The
  * output of a solver program might look like
- *     44-270
- *     197-0
- *     73-180
+ *     p0044.pbm 270
+ *     p0197.pbm 0
+ *     p0073.pbm 180
  *     ....
  *
  *
@@ -57,8 +59,8 @@
  * to an interlocking 7x7 piece would have a size of 13x7.  For example,
  * a jigsaw with a width of 10, a height of 8, and a piece size of 7x7
  * would have a grid size of:
- *     gwidth  = (p-size * width) - 1 = ((7 * 10) - 1 = 69
- *     gheight = (p-size * height) -1 = ((7 * 8) - 1 = 55
+ *     gwidth  = ((p-size -1) * width) + 1 = ((6 * 10) + 1 = 61
+ *     gheight = ((p-size -1) * height) + 1 = ((6 * 8) + 1 = 49
  *
  * If you think about it you'll see that all the action of a piece is in
  * the top row, the last column, the bottom row, and the first column.  This
@@ -97,29 +99,21 @@
  * The dogrid() routine finishes the grid by randomly assigning the
  * interlocking pieces to an adjoining piece.  
  *
- * The outputgrid() routine saves the completed grid as a set of .pbm
- * files.  Note that sometimes identical pieces are generated.  The
- * outputgrid() routine checks for this and renames the file to have
- * the same name as the original but with an extension that gives the
- * duplicate number.  So if piece 44 had a duplicate, the duplicate would
- * be named 44.1.  Duplicate detection looks for rotated duplicates as
- * well.  The solution should give original piece number, not the number
- * with * its duplicate extension.  Thus when the piece 44.1 appears in a
- * solution it is listed as just 44.
- *
- * Outputgrid() saves the pieces but gives random numbers and rotations to
- * each pieces as it is saved.  The solution to the jigsaw is saved to the
- * "solution.txt" file.  As shown above, solutions have the piece number
- * and its clockwise rotation.  
+ * The outputpbm() routine saves the completed grid as a set of .pbm
+ * files. Outputgrid() saves the pieces but gives random numbers and 
+ * rotations to each pieces as it is saved.  The solution to the jigsaw
+ * is saved to the "solution.txt" file.  As shown above, solutions have
+ * the piece number and its clockwise rotation.  
  *
  * Consider four valid solutions to the 3x3 puzzle above:
  *     123  369  987  741
  *     456  258  654  852
  *     789  147  321  963
- * To force a single solution we require that the lowest numbered valid
- * corner piece be in the top left position.  In the above case, the 123
- * arrangement would be the valid solution.
- *
+ * A rotated solution is still a valid solution and a puzzle with many
+ * pieces may have duplicate pieces.  This makes it difficult to have
+ * "one good solution".  To work around this we use a program to check
+ * for a valid solution by putting all the pieces on a grid.  If there
+ * are no gaps or overlaps the solution is valid.
  */
 
 
@@ -141,6 +135,12 @@
 #define MAX_HEIGHT   500
         // Maximum resolution of the fingers on a piece
 #define MAX_EDGE     8
+        // .pbm file name length
+#define PBMNAMELEN   40
+        // Use a macro to make printing an svg line easier to read
+#define SVGLINE(x1,y1,x2,y2) { \
+        fprintf(fs, "<line x1='%d' y1='%d' x2='%d' y2='%d'/>\n", x1, y1, x2, y2);\
+        };
 
 
 /**************************************************************
@@ -148,7 +148,8 @@
  **************************************************************/
 void initgrid(int *, int, int, int);
 void dogrid(int *, int, int, int);
-void outputgrid(int *, int, int, int);
+void outputpbm(int *, int, int, int);
+void outputsvg(int *, int, int, int);
 
 
 
@@ -166,8 +167,8 @@ int main(int argc, char **argv)
     int   width;            // Width of the puzzle in pieces
     int   height;           // Height of the puzzle in pieces
     int   edge;             // Resolution of a piece edge
-    int   gw;               // Grid width (width * size) -1
-    int   gh;               // Grid height (height * size) -1
+    int   gw;               // Grid width
+    int   gh;               // Grid height
     int   i,j;              // Generic loop counters
 
 
@@ -189,15 +190,14 @@ int main(int argc, char **argv)
     }
 
     // Allocate memory for grid
-    gw = (width * edge) - 1;
-    gh = (height * edge) - 1;
-    grid = (int *) malloc(sizeof(int) * gw * gh * edge);
+    gw = (width * (edge - 1)) + 1;
+    gh = (height * (edge - 1)) + 1;
+    grid = (int *) malloc(sizeof(int) * gw * gh);
     for (i = 0; i < gw; i++) {
         for (j = 0; j < gh; j++) {
             grid[i + (j * gw)] = -1;
         }
     } 
-
 
     // Init the grid with the known values
     initgrid(grid, width, height, edge);
@@ -208,7 +208,11 @@ int main(int argc, char **argv)
 
 
     // Output the grid
-    outputgrid(grid, width, height, edge);
+    outputpbm(grid, width, height, edge);
+
+
+    // Output the SVG image
+    outputsvg(grid, width, height, edge);
 
     exit(0);
 }
@@ -222,25 +226,30 @@ void initgrid(int *grid, int width, int height, int edge)
 {
     int   i,j;              // Increment over width and height
     int   ik,jk;            // Increment over edge in i/j dimension
-    int   x = 0;            // location in the grid array
+    int   is,js;            // Start location in i.j 
+    int   gw;               // grid width
 
+    gw = 1 + (width * (edge -1));
 
     // Walk the array computing the piece number at each location
     for (j = 0; j < height; j++) {
-        for (jk = 0; jk < edge; jk++) {
-            for (i = 0; i < width; i++) {
+        js = j * (edge -1);
+        for (i = 0; i < width; i++) {
+            is = i * (edge -1);
+            for (jk = 0; jk < edge; jk++) {
                 for (ik = 0; ik < edge; ik++) {
-                    // Last column is (width * edge) -1
-                    if ((i == width -1) && (ik == edge -1))
+                    // Do not set the areas where pieces interlock
+                    // (not really needed but make debugging easier)
+                    if ((ik == 0) && (i != 0))
                         continue;
-                    // Last column is (width * edge) -1
-                    if ((j == height -1) && (jk == edge -1))
+                    if ((jk == 0) && (j != 0))
                         continue;
-                    if ((ik == edge -1) || (jk == edge -1))
-                        grid[x] = -1;
-                    else
-                        grid[x] = i + (j * width);
-                    x = x + 1;
+                    if ((ik == edge -1) && (i != width -1))
+                        continue;
+                    if ((jk == edge -1) && (j != height -1))
+                        continue;
+
+                    grid[(ik + is) + ((js + jk) * gw)] = i + (j * width);
                 }
             }
         }
@@ -249,60 +258,49 @@ void initgrid(int *grid, int width, int height, int edge)
 
 
 /**************************************************************
- * dogrid(): - Compute the random bits of the grid
+ * dogrid(): - Compute the random bits in the grid
  *
  **************************************************************/
 void dogrid(int *grid, int width, int height, int edge)
 {
-    int   i,j;              // Increment over width and height
     int   ik,jk;            // Increment over edge in i/j dimension
-    int   x = 0;            // location in the grid array
+    int   step;             // Distance between columns/rows to change
     int   randdir;          // One of four random directions
     int   rw;               // RowWidth
     int   roff, coff;       // Row and column offsets
-int y;
+    int   gw, gh;           // grid width, height
+    int   x;                // Linear address of cell in grid 
 
+    gw = 1 + (width * (edge -1));
+    gh = 1 + (height * (edge -1));
+    step = edge -1;
 
-    // Walk the array computing the piece number at each location
-    for (j = 0; j < height; j++) {
-        for (jk = 0; jk < edge; jk++) {
-            for (i = 0; i < width; i++) {
-                for (ik = 0; ik < edge; ik++) {
-                    // Last column is (width * edge) -1
-                    if ((i == width -1) && (ik == edge -1))
-                        continue;
-                    // Last column is (width * edge) -1
-                    if ((j == height -1) && (jk == edge -1))
-                        continue;
+    // Do top/bottom random selection
+    for (ik = step; ik < (gw -1); ik += step) {
+        for (jk = 0; jk < gh; jk++) {
+            x = ik + (jk * gw);
+            if ((rand() % 2) == 0)
+                grid[x] = grid[x-1];
+            else
+                grid[x] = grid[x+1];
+        }
+    }
 
-                    // 
-                    if ((ik == (edge -1)) && (jk != (edge -1))) {
-                        // Do left/right random selection
-                        if ((rand() % 2) == 0)
-                            grid[x] = grid[x-1];
-                        else
-                            grid[x] = grid[x+1];
-                    }
-                    if ((ik != (edge -1)) && (jk == (edge -1))) {
-                        // Do top/bottom random selection
-                        if ((rand() % 2) == 0)
-                            grid[x] = grid[x - ((edge * width) -1)];
-                        else
-                            grid[x] = grid[x + ((edge * width) -1)];
-                    }
-                    x = x + 1;
-                }
-            }
+    // Do left/right random selection
+    for (jk = step; jk < (gh -1); jk += step) {
+        for (ik = 0; ik < gw; ik++) {
+            x = ik + (jk * gw);
+            if ((rand() % 2) == 0)
+                grid[x] = grid[x - gw];
+            else
+                grid[x] = grid[x + gw];
         }
     }
 
     // Compute the random attachment for pieces at the intersections
-    rw = (width * edge) - 1;                 // row width
-    for (j = 0; j < height; j++) {
-        roff = (j * edge) + (edge - 1);      // num full rows in offset
-        for (i = 0; i < width; i++) {
-            coff = (i * edge) + (edge - 1);  // num full cols in offset
-            x = (roff * rw) + coff;
+    for (jk = step; jk < (gh -1); jk += step) {
+        for (ik = step; ik < (gw -1); ik += step) {
+            x = ik + (jk * gw);
             // Do four way random selection
             randdir = rand() % 4;
             if (randdir == 0) {
@@ -312,45 +310,190 @@ int y;
                 grid[x] = grid[x+1];
             }
             else if (randdir == 2) {
-                grid[x] = grid[x + ((edge * width) -1)];
+                grid[x] = grid[x + gw];
             }
             else {
-                grid[x] = grid[x - ((edge * width) -1)];
+                grid[x] = grid[x - gw];
             }
         }
     }
 }
 
 
-
 /**************************************************************
- * outputgrid(): - Fill in the easy to compute bits
+ * outputpbm(): - output the puzzle as a set of .pbm files
  *
  **************************************************************/
-void outputgrid(int *grid, int width, int height, int edge)
+void outputpbm(int *grid, int width, int height, int edge)
 {
+    int   gw;               // Grid width
+    int   gh;               // Grid height
+    int   n;                // Do the n'th piece
     int   i,j;              // Increment over width and height
     int   ik,jk;            // Increment over edge in i/j dimension
+    int   is,js;            // Starting i/j for loops
     int   x = 0;            // location in the grid array
+    int  *piece;            // list of pieces
+    int   npiece;           // number of pieces
+    int   newloc;           // random location to put piece
+    FILE *fp;               // File pointer to .pbm file
+    FILE *fs;               // File pointer to solution file
+    int   ret;              // system call return value
+    char  fname[PBMNAMELEN]; // .pbm file name
+    int   randrot;          // random rotation 0=0, 1=90, 2=180, 3=270
+
+
+    // Build a list of pieces, number them, then rearrange them.
+    npiece = height * width;
+    piece = (int *) malloc(sizeof(int) * npiece);
+    if (piece == 0) {
+        printf("malloc failure\n");
+        exit(1);
+    }
+    // number the pieces
+    for (n = 0; n < npiece; n++) {
+        piece[n] = n;
+    }
+    // rearrange them
+    for (n =0; n < npiece; n++) {
+        newloc = rand() % npiece;
+        j = piece[newloc];
+        piece[newloc] = piece[n];
+        piece[n] = j;
+    }
+
+    // Open the solution file
+    fs = fopen("solution.txt", "w");
+    if (fs == 0)
+        exit(1);
+
+
+    // Output each piece as a .pbm file.  Rotate the piece before
+    // writing to the file.
+    gw = (width * (edge - 1)) + 1;
+    for (n = 0; n < npiece; n++) {
+        // open the randomized file name
+        ret = snprintf(fname, PBMNAMELEN, "p%04d.pbm", piece[n]);
+        if (ret < 0)
+            exit(1);
+        fp = fopen(fname, "w");
+        if (fp == 0)
+            exit(1);
+        fprintf(fp, "P1\n");
+        fprintf(fp, "# %s\n", fname);
+        fprintf(fp, "%d %d\n", edge, edge);
+
+        // get a random rotation for the piece
+        randrot = rand() % 4;
+
+        // Save the correct piece and rotation to the solution file
+        fprintf(fs, "%s %d\n", fname, randrot * 90);
+
+        // get to the target piece
+        i = n % width;    // as piece number
+        j = n / height;
+        is = i * (edge -1);      // as grid index
+        js = j * (edge -1);
+
+        // walk the perimeter of the piece to get the edges
+        for (jk = 0; jk < edge; jk++) {
+            for (ik = 0; ik < edge; ik++) {
+                // select bit to print based on rotation
+                if (randrot == 0)
+                    x = ik + is + ((jk + js) * gw);              // 0 rotation
+                else if (randrot == 1)
+                    x = jk + is + (((edge -1 -ik) + js) * gw);           // 90
+                else if (randrot == 2)
+                    x = edge -1 - ik + is + (((edge -1 -jk) + js) * gw); // 180
+                else
+                    x = edge -1 - jk + is + ((ik + js) * gw);            // 270
+                if (grid[x] == n)
+                    fprintf(fp, "1");
+                else
+                    fprintf(fp, "0");
+            }
+            fprintf(fp, "\n");
+        }
+        fclose(fp);
+    }
+    fclose(fs);
 
 
     // Walk the array printing the piece number at each location
-    for (j = 0; j < height; j++) {
-        for (jk = 0; jk < edge; jk++) {
-            for (i = 0; i < width; i++) {
-                for (ik = 0; ik < edge; ik++) {
-                    // Last column is (width * edge) -1
-                    if ((i == width -1) && (ik == edge -1))
-                        continue;
-                    // Last column is (width * edge) -1
-                    if ((j == height -1) && (jk == edge -1))
-                        continue;
-                    printf("%2d ",grid[x]);
-                    x = x + 1;
-                }
+    gw = (width * (edge - 1)) + 1;
+    gh = (height * (edge - 1)) + 1;
+    for (j = 0; j < gh; j++) {
+        for (i = 0; i < gw; i++) {
+            printf("%2d ", grid[i + (j * gw)]);
+        }
+        printf("\n");
+    } 
+}
+
+
+/**************************************************************
+ * outputsvg(): - save the puzzle as a scalable vector graphics
+ * file.
+ *
+ **************************************************************/
+void outputsvg(int *grid, int width, int height, int edge)
+{
+    int   gw;               // Grid width
+    int   gh;               // Grid height
+    int   i,j;              // Increment over edge in i/j dimension
+    int   x = 0;            // location in the grid array
+    FILE *fs;               // File pointer to solution file
+    int   bw = 20;          // width of border in mm around the whole puzzle
+
+
+    // Open the solution file
+    fs = fopen("solution.svg", "w");
+    if (fs == 0)
+        exit(1);
+
+    // Print header of svg file.  We let each bit in the solution be
+    // 10mm wide.  
+    gw = ((edge -1) * width) + 1;
+    gh = ((edge -1) * height) + 1;
+    fprintf(fs, "<svg width='%dmm' height='%dmm'\n", ((gw * 10) + (2 * bw)),
+                 ((gh * 10) + (2 * bw)));
+    fprintf(fs, "viewBox='0 0 %d %d'\n", ((gw * 10) + (2 * bw)),
+                 ((gh * 10) + (2 * bw)));
+    fprintf(fs, "stroke-width='1' stroke='rgb(0,0,0)'>\n\n");
+
+    // print the outline of the puzzle
+    SVGLINE(bw, bw, bw+(gw*10), bw);                    // top
+    SVGLINE(bw, bw+(gh*10), bw+(gw*10), bw+(gh*10));    // bottom
+    SVGLINE(bw, bw, bw, bw+(gh*10));                    // left
+    SVGLINE(bw+(gw*10), bw, bw+(gw*10), bw+(gh*10));    // right
+    fprintf(fs, "\n");
+
+    // Scan from left to right and top to bottom printing vertical lines
+    // where there is a transition from one piece to the next
+    for (j = 0; j < gh; j++) {
+        for (i = 0; i < gw-1; i++) {
+            x = i + (gw * j);
+            if (grid[x] != grid[x+1]) {
+                SVGLINE(10+bw+(i*10), bw+(j*10), 10+bw+(i*10), bw+(j*10)+10);
             }
-            printf("\n");
         }
     }
+
+    // Scan from top to bottom and left to right printing horizontal lines
+    // where there is a transition from one piece to the next
+    for (i = 0; i < gw; i++) {
+        for (j = 0; j < gh-1; j++) {
+            x = i + (gw * j);
+            if (grid[x] != grid[x+gw]) {
+                SVGLINE(bw+(i*10), 10+bw+(j*10), bw+(i*10)+10, 10+bw+(j*10));
+            }
+        }
+    }
+
+
+    fprintf(fs, "</svg>\n");
+
+    fclose(fs);
+
 }
 

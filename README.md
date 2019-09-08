@@ -26,25 +26,16 @@ output file describing each piece looks something like the following:
 ```
 Each piece is given a random number and a random orientation.  The goal
 of a solver program is to list the pieces and their clockwize orientation
-starting from the top left corner and going from left to right.  The
+starting from the top left corner and going from left to right.  A
+solution gives the file name of the piece and how much the piece should
+be rotated in the counterclockwise direction before placement.  The
 output of a solver program might look like
 ```
-    44-270
-    197-0
-    73-180
-    ....
-
+      p0044.pbm 270
+      p0197.pbm 0
+      p0073.pbm 180
+      ....
 ```
-Note that sometimes identical pieces are generated.  These pieces are
-given the same name as the original but with an extension that gives the
-duplicate number.  So if piece 44 had a duplicate, the duplicate would
-be named 44.1.  Duplicate detection looks for pieces that become a
-duplicate when rotated.
-
-Your solution should give original piece number, not the number with its
-duplicate extension.  Thus when the piece 44.1 appears in a solution it
-is listed as just 44.
-
 
 Consider four valid, but rotated, solutions to a 3x3 puzzle:
 ```
@@ -52,8 +43,10 @@ Consider four valid, but rotated, solutions to a 3x3 puzzle:
     456  258  654  852
     789  147  321  963
 ```
-To force a single solution we require that the lowest numbered valid
-corner piece be in the top left position.  In the above case, the 123
-arrangement would be the valid solution.
+A rotated solution is still a valid solution and a puzzle with many
+pieces may have duplicate pieces.  This makes it difficult to have
+"one good solution".  To work around this we use a program to check
+for a valid solution by putting all the pieces on a grid.  If there
+are no gaps or overlaps the solution is valid.
 
 
