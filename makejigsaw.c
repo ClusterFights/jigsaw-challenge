@@ -137,10 +137,13 @@
 #define MAX_EDGE     8
         // .pbm file name length
 #define PBMNAMELEN   40
+        // Nominal finger width in millimeters
+#define MMPF         10
         // Use a macro to make printing an svg line easier to read
 #define SVGLINE(x1,y1,x2,y2) { \
         fprintf(fs, "<line x1='%d' y1='%d' x2='%d' y2='%d'/>\n", x1, y1, x2, y2);\
         };
+        
 
 
 /**************************************************************
@@ -452,20 +455,20 @@ void outputsvg(int *grid, int width, int height, int edge)
         exit(1);
 
     // Print header of svg file.  We let each bit in the solution be
-    // 10mm wide.  
+    // 10mm (MMPF) wide.  
     gw = ((edge -1) * width) + 1;
     gh = ((edge -1) * height) + 1;
-    fprintf(fs, "<svg width='%dmm' height='%dmm'\n", ((gw * 10) + (2 * bw)),
-                 ((gh * 10) + (2 * bw)));
-    fprintf(fs, "viewBox='0 0 %d %d'\n", ((gw * 10) + (2 * bw)),
-                 ((gh * 10) + (2 * bw)));
+    fprintf(fs, "<svg width='%dmm' height='%dmm'\n", ((gw * MMPF) + (2 * bw)),
+                 ((gh * MMPF) + (2 * bw)));
+    fprintf(fs, "viewBox='0 0 %d %d'\n", ((gw * MMPF) + (2 * bw)),
+                 ((gh * MMPF) + (2 * bw)));
     fprintf(fs, "stroke-width='1' stroke='rgb(0,0,0)'>\n\n");
 
     // print the outline of the puzzle
-    SVGLINE(bw, bw, bw+(gw*10), bw);                    // top
-    SVGLINE(bw, bw+(gh*10), bw+(gw*10), bw+(gh*10));    // bottom
-    SVGLINE(bw, bw, bw, bw+(gh*10));                    // left
-    SVGLINE(bw+(gw*10), bw, bw+(gw*10), bw+(gh*10));    // right
+    SVGLINE(bw, bw, bw+(gw*MMPF), bw);                        // top
+    SVGLINE(bw, bw+(gh*MMPF), bw+(gw*MMPF), bw+(gh*MMPF));    // bottom
+    SVGLINE(bw, bw, bw, bw+(gh*MMPF));                        // left
+    SVGLINE(bw+(gw*MMPF), bw, bw+(gw*MMPF), bw+(gh*MMPF));    // right
     fprintf(fs, "\n");
 
     // Scan from left to right and top to bottom printing vertical lines
@@ -474,7 +477,7 @@ void outputsvg(int *grid, int width, int height, int edge)
         for (i = 0; i < gw-1; i++) {
             x = i + (gw * j);
             if (grid[x] != grid[x+1]) {
-                SVGLINE(10+bw+(i*10), bw+(j*10), 10+bw+(i*10), bw+(j*10)+10);
+                SVGLINE(MMPF+bw+(i*MMPF), bw+(j*MMPF), MMPF+bw+(i*MMPF), bw+(j*MMPF)+MMPF);
             }
         }
     }
@@ -485,15 +488,13 @@ void outputsvg(int *grid, int width, int height, int edge)
         for (j = 0; j < gh-1; j++) {
             x = i + (gw * j);
             if (grid[x] != grid[x+gw]) {
-                SVGLINE(bw+(i*10), 10+bw+(j*10), bw+(i*10)+10, 10+bw+(j*10));
+                SVGLINE(bw+(i*MMPF), MMPF+bw+(j*MMPF), bw+(i*MMPF)+MMPF, MMPF+bw+(j*MMPF));
             }
         }
     }
 
 
     fprintf(fs, "</svg>\n");
-
     fclose(fs);
-
 }
 

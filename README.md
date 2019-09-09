@@ -1,19 +1,26 @@
-# jigsaw-challenge
-Solve a digitally generated jigsaw puzzle.
+# Jigsaw Challenge
+Write a cluster-based program to solve a digital jigsaw puzzle
 
 
-INTRODUCTION
-This program creates a jigsaw puzzle.  The output is a set of portable
-bitmap files (.pbm).  Each file describes one jigsaw puzzle piece.
+## Problem Statement
+You are given the geometry of a jigsaw puzzle and a set of files
+where each file contains the outline of one puzzle piece.  Your
+program must rotate and rearrange the puzzle pieces to assemble
+the jigsaw puzzle.
+
+On ClusterFight nights you will be given an encrypted zip file
+with the pieces.  At challenge start time you will be given the
+password to the zip file.  Read the pieces and rearrange them
+into a solution as quickly as possible.  A program is available
+to verify that you have correctly solved the challenge.
 
 
-OVERVIEW
-Command line parameters to this program specify the height and width of
-the puzzle as well as how many "fingers" to have on each piece edge.  The
-output file describing each piece looks something like the following:
+## The Puzzle
+The outline of each piece is given as a portable bitmap file
+that looks something like the following:
 ```
     P1
-    # 44.pbm
+    # p0044.pbm
     7 7
     1 1 0 0 1 1 0
     1 1 1 1 1 1 1
@@ -49,4 +56,27 @@ pieces may have duplicate pieces.  This makes it difficult to have
 for a valid solution by putting all the pieces on a grid.  If there
 are no gaps or overlaps the solution is valid.
 
+
+
+## Getting Started
+The program makejigsaw.c generates the puzzles.  Compile it as
+' gcc -o makejigsaw makejigsaw.c
+
+The program takes three command line parameters, the width of the
+puzzle (in # of pieces), the height of the puzzle, and how many
+"fingers" to allow on each edge.  
+
+The program outputs three types of data.  The first is a set of
+(height X width) .pbm files with the puzzle pieces.  The second
+is the solution as a text file with the correct placement and
+counterclockwise rotation of each piece.  The third is an SVG
+file that shows the solution.  You may want to use inkscale to
+view the SVG file.  
+
+Shown below is an image of the solution.svg file for the command
+' makejigsaw 10 10 7
+
+
+![makejigsaw 10 10 7](images/solution.png)
+-
 
