@@ -70,7 +70,7 @@ The program outputs three types of data.  The first is a set of
 (height X width) .pbm files with the puzzle pieces.  The second
 is the solution as a text file with the correct placement and
 counterclockwise rotation of each piece.  The third is an SVG
-file that shows the solution.  You may want to use inkscale to
+file that shows the solution.  You may want to use inkscape to
 view the SVG file.  
 
 Shown below is an image of the solution.svg file for the command
@@ -78,5 +78,16 @@ Shown below is an image of the solution.svg file for the command
 
 
 ![makejigsaw 10 10 7](images/solution.png)
+
+
+As described above, a solution to the puzzle is stored in solution.txt.
+Solving the puzzle means creating a solution.txt file.  You can validate
+your solution with the validatejigsaw program.  A typical flow might be
+as follows:
+' makejigsaw 10 10 7
+' rm solution.txt
+' (run your propgram to create a new solution.txt)
+' validatejigsaw 10 10 7
+
 -
 

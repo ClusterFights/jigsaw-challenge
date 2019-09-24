@@ -423,14 +423,14 @@ void outputpbm(int *grid, int width, int height, int edge)
 
 
     // Walk the array printing the piece number at each location
-    gw = (width * (edge - 1)) + 1;
-    gh = (height * (edge - 1)) + 1;
-    for (j = 0; j < gh; j++) {
-        for (i = 0; i < gw; i++) {
-            printf("%2d ", grid[i + (j * gw)]);
-        }
-        printf("\n");
-    } 
+    // gw = (width * (edge - 1)) + 1;
+    // gh = (height * (edge - 1)) + 1;
+    // for (j = 0; j < gh; j++) {
+    //     for (i = 0; i < gw; i++) {
+    //         printf("%2d ", grid[i + (j * gw)]);
+    //     }
+    //     printf("\n");
+    // } 
 }
 
 
