@@ -84,10 +84,12 @@ As described above, a solution to the puzzle is stored in solution.txt.
 Solving the puzzle means creating a solution.txt file.  You can validate
 your solution with the validatejigsaw program.  A typical flow might be
 as follows:
-' makejigsaw 10 10 7
-' rm solution.txt
-' (run your propgram to create a new solution.txt)
-' validatejigsaw 10 10 7
+'''
+   makejigsaw 10 10 7
+   rm solution.txt
+   (run your propgram to create a new solution.txt)
+   validatejigsaw 10 10 7
+'''
 
 -
 
